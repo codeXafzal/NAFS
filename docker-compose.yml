@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: nafs-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nafs}
+      POSTGRES_USER: ${POSTGRES_USER:-nafs_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local_dev_only}
+    ports:
+      - "5433:5432"
+    volumes:
+      - nafs_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nafs_app} -d ${POSTGRES_DB:-nafs}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: nafs-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - nafs_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  nafs_pgdata:
+  nafs_redisdata:

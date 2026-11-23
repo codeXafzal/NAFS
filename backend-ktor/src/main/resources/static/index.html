@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NAfs - Salah Dashboard</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #0f172a; color: #f8fafc; padding: 24px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 640px; }
+    header { margin-bottom: 24px; border-bottom: 1px solid #1e293b; padding-bottom: 16px; }
+    h1 { margin: 0; font-size: 1.75rem; color: #34d399; }
+    p.sub { margin: 4px 0 0; color: #94a3b8; font-size: 0.9rem; }
+    .card { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 14px; border: 1px solid #334155; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .prayer-name { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.5px; }
+    .time { color: #34d399; font-weight: 600; font-size: 0.95rem; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { border: 1px solid #475569; background: #0f172a; color: #cbd5e1; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+    button:hover { border-color: #94a3b8; }
+    button.active-COMPLETED { background: #059669; border-color: #10b981; color: #fff; }
+    button.active-MISSED { background: #dc2626; border-color: #ef4444; color: #fff; }
+    button.active-EXCUSED_OR_OTHER { background: #d97706; border-color: #f59e0b; color: #fff; }
+    input.note { width: 100%; margin-top: 10px; padding: 8px 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #f8fafc; font-size: 0.85rem; }
+    #status-bar { font-size: 0.85rem; color: #34d399; min-height: 20px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>NAfs</h1>
+      <p class="sub">Private Salah Companion - Saved locally to your PostgreSQL database</p>
+    </header>
+    <div id="status-bar">Loading today's prayers...</div>
+    <div id="list"></div>
+  </div>
+
+  <script>
+    const statusBar = document.getElementById('status-bar');
+    const listEl = document.getElementById('list');
+
+    async function loadToday() {
+      try {
+        const res = await fetch('/api/salah/today');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const prayers = await res.json();
+        statusBar.textContent = '';
+        listEl.innerHTML = '';
+
+        prayers.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <div class="row">
+              <span class="prayer-name">${p.prayer}</span>
+              <span class="time">${p.calculatedTime}</span>
+            </div>
+            <div class="actions">
+              <button class="${p.status === 'COMPLETED' ? 'active-COMPLETED' : ''}" onclick="save('${p.prayer}', 'COMPLETED')">Completed</button>
+              <button class="${p.status === 'MISSED' ? 'active-MISSED' : ''}" onclick="save('${p.prayer}', 'MISSED')">Missed</button>
+              <button class="${p.status === 'EXCUSED_OR_OTHER' ? 'active-EXCUSED_OR_OTHER' : ''}" onclick="save('${p.prayer}', 'EXCUSED_OR_OTHER')">Excused</button>
+              <button onclick="scheduleReminder('${p.prayer}', '${p.calculatedTime}')">Remind Me</button>
+            </div>
+            <input class="note" id="note-${p.prayer}" placeholder="Optional personal note (saved on button click)..." value="${p.personalNote || ''}" />
+          `;
+          listEl.appendChild(card);
+        });
+      } catch (err) {
+        statusBar.textContent = 'Error loading prayers: ' + err.message;
+      }
+    }
+
+    async function save(prayer, status) {
+      const note = document.getElementById('note-' + prayer).value.trim() || null;
+      statusBar.textContent = 'Saving ' + prayer + '...';
+      await fetch('/api/salah/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prayer, status, personalNote: note })
+      });
+      statusBar.textContent = 'Saved ' + prayer + ' as ' + status;
+      await loadToday();
+    }
+
+    async function scheduleReminder(prayer, time) {
+      statusBar.textContent = 'Scheduling ' + prayer + ' reminder...';
+      try {
+        const res = await fetch('http://127.0.0.1:8082/api/reminders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prayer, time })
+        });
+        statusBar.textContent = res.ok
+          ? 'Reminder set in Go/Redis for ' + prayer + ' at ' + time
+          : 'Could not set reminder for ' + prayer;
+      } catch (e) {
+        statusBar.textContent = 'Go service (port 8082) is not running';
+      }
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+
+    loadToday();
+  </script>
+</body>
+</html>
