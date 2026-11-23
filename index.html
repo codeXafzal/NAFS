@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NAfs - Salah Dashboard</title>
   <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" href="./icon-192.png" />
   <meta name="theme-color" content="#0f172a" />
   <style>
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
@@ -37,7 +38,7 @@
   </div>
 
   <script>
-    const SUPABASE_URL = '';
+    const SUPABASE_URL = 'sb_publishable_2hNe9Ykx3KUPfDwDpOOubw_0OnUTGI-';
     const SUPABASE_KEY = 'sb_publishable_2hNe9Ykx3KUPfDwDpOOubw_0OnUTGI-';
     const PRAYERS = [
       { name: 'FAJR', time: '05:15' },
@@ -53,14 +54,16 @@
 
     const headers = {
       'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
       'Content-Type': 'application/json'
     };
+    if (SUPABASE_KEY.startsWith('eyJ')) {
+      headers['Authorization'] = 'Bearer ' + SUPABASE_KEY;
+    }
 
     async function loadToday() {
       try {
         const res = await fetch(SUPABASE_URL + '/rest/v1/salah_logs?prayer_date=eq.' + todayStr(), { headers });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' - ' + (await res.text()));
         const rows = await res.json();
         const saved = {};
         rows.forEach(r => saved[r.prayer_name] = r);
@@ -72,22 +75,22 @@
           const cur = saved[p.name] || { status: '', personal_note: '' };
           const card = document.createElement('div');
           card.className = 'card';
-          card.innerHTML = \
+          card.innerHTML = `
             <div class="row">
-              <span class="prayer-name">\</span>
-              <span class="time">\</span>
+              <span class="prayer-name">${p.name}</span>
+              <span class="time">${p.time}</span>
             </div>
             <div class="actions">
-              <button class="\" onclick="save('\', 'COMPLETED')">Completed</button>
-              <button class="\" onclick="save('\', 'MISSED')">Missed</button>
-              <button class="\" onclick="save('\', 'EXCUSED')">Excused</button>
+              <button class="${cur.status === 'COMPLETED' ? 'active-COMPLETED' : ''}" onclick="save('${p.name}', 'COMPLETED')">Completed</button>
+              <button class="${cur.status === 'MISSED' ? 'active-MISSED' : ''}" onclick="save('${p.name}', 'MISSED')">Missed</button>
+              <button class="${cur.status === 'EXCUSED' ? 'active-EXCUSED' : ''}" onclick="save('${p.name}', 'EXCUSED')">Excused</button>
             </div>
-            <input class="note" id="note-\" placeholder="Optional personal note (saved on button click)..." value="\" />
-          \;
+            <input class="note" id="note-${p.name}" placeholder="Optional personal note (saved on button click)..." value="${cur.personal_note || ''}" />
+          `;
           listEl.appendChild(card);
         });
       } catch (err) {
-        statusBar.textContent = 'Error connecting to Supabase: ' + err.message;
+        statusBar.textContent = 'Error: ' + err.message;
       }
     }
 
@@ -104,7 +107,7 @@
           personal_note: note
         })
       });
-      statusBar.textContent = res.ok ? 'Saved ' + prayer + ' to Supabase' : 'Save failed';
+      statusBar.textContent = res.ok ? 'Saved ' + prayer + ' to Supabase' : 'Save failed: HTTP ' + res.status;
       await loadToday();
     }
 
