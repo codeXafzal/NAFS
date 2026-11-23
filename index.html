@@ -38,7 +38,7 @@
   </div>
 
   <script>
-    const SUPABASE_URL = 'sb_publishable_2hNe9Ykx3KUPfDwDpOOubw_0OnUTGI-';
+    const SUPABASE_URL = 'https://aidsrowkntxxfioxrlph.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_2hNe9Ykx3KUPfDwDpOOubw_0OnUTGI-';
     const PRAYERS = [
       { name: 'FAJR', time: '05:15' },
@@ -56,9 +56,6 @@
       'apikey': SUPABASE_KEY,
       'Content-Type': 'application/json'
     };
-    if (SUPABASE_KEY.startsWith('eyJ')) {
-      headers['Authorization'] = 'Bearer ' + SUPABASE_KEY;
-    }
 
     async function loadToday() {
       try {

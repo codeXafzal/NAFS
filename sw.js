@@ -1,4 +1,4 @@
-const CACHE = 'nafs-supabase-v2';
+const CACHE = 'nafs-supabase-v3';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))));
