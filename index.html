@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NAfs - Salah Dashboard</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #0f172a; color: #f8fafc; padding: 20px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 600px; }
+    header { margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 14px; }
+    h1 { margin: 0; font-size: 1.75rem; color: #34d399; }
+    p.sub { margin: 4px 0 0; color: #94a3b8; font-size: 0.9rem; }
+    .card { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 14px; border: 1px solid #334155; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .prayer-name { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.5px; }
+    .time { color: #34d399; font-weight: 600; font-size: 0.95rem; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { border: 1px solid #475569; background: #0f172a; color: #cbd5e1; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+    button.active-COMPLETED { background: #059669; border-color: #10b981; color: #fff; }
+    button.active-MISSED { background: #dc2626; border-color: #ef4444; color: #fff; }
+    button.active-EXCUSED { background: #d97706; border-color: #f59e0b; color: #fff; }
+    input.note { width: 100%; margin-top: 10px; padding: 8px 10px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #f8fafc; font-size: 0.85rem; }
+    #status-bar { font-size: 0.85rem; color: #34d399; min-height: 20px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>NAfs</h1>
+      <p class="sub">Private Salah Companion - Synced with Supabase</p>
+    </header>
+    <div id="status-bar">Loading today's prayers...</div>
+    <div id="list"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = '';
+    const SUPABASE_KEY = 'sb_publishable_2hNe9Ykx3KUPfDwDpOOubw_0OnUTGI-';
+    const PRAYERS = [
+      { name: 'FAJR', time: '05:15' },
+      { name: 'DHUHR', time: '12:15' },
+      { name: 'ASR', time: '15:35' },
+      { name: 'MAGHRIB', time: '17:55' },
+      { name: 'ISHA', time: '19:15' }
+    ];
+
+    const statusBar = document.getElementById('status-bar');
+    const listEl = document.getElementById('list');
+    const todayStr = () => new Date().toLocaleDateString('en-CA');
+
+    const headers = {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json'
+    };
+
+    async function loadToday() {
+      try {
+        const res = await fetch(SUPABASE_URL + '/rest/v1/salah_logs?prayer_date=eq.' + todayStr(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const rows = await res.json();
+        const saved = {};
+        rows.forEach(r => saved[r.prayer_name] = r);
+
+        statusBar.textContent = '';
+        listEl.innerHTML = '';
+
+        PRAYERS.forEach(p => {
+          const cur = saved[p.name] || { status: '', personal_note: '' };
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = \
+            <div class="row">
+              <span class="prayer-name">\</span>
+              <span class="time">\</span>
+            </div>
+            <div class="actions">
+              <button class="\" onclick="save('\', 'COMPLETED')">Completed</button>
+              <button class="\" onclick="save('\', 'MISSED')">Missed</button>
+              <button class="\" onclick="save('\', 'EXCUSED')">Excused</button>
+            </div>
+            <input class="note" id="note-\" placeholder="Optional personal note (saved on button click)..." value="\" />
+          \;
+          listEl.appendChild(card);
+        });
+      } catch (err) {
+        statusBar.textContent = 'Error connecting to Supabase: ' + err.message;
+      }
+    }
+
+    async function save(prayer, status) {
+      const note = document.getElementById('note-' + prayer).value.trim() || null;
+      statusBar.textContent = 'Saving ' + prayer + '...';
+      const res = await fetch(SUPABASE_URL + '/rest/v1/salah_logs', {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({
+          prayer_date: todayStr(),
+          prayer_name: prayer,
+          status: status,
+          personal_note: note
+        })
+      });
+      statusBar.textContent = res.ok ? 'Saved ' + prayer + ' to Supabase' : 'Save failed';
+      await loadToday();
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js');
+    }
+
+    loadToday();
+  </script>
+</body>
+</html>
